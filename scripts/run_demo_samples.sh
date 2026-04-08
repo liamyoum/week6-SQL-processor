@@ -5,32 +5,84 @@ set -eu
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 REPO_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)
 OUTPUT_ROOT="$REPO_ROOT/manual_runs/latest"
+CASE_NAMES="
+01_happy_path
+02_select_student_by_id
+03_duplicate_student_id
+04_unsupported_sql
+05_missing_semicolon
+06_unterminated_string
+07_entry_log_unauthorized
+08_entry_log_missing_student
+09_stop_after_middle_error
+"
 
 purpose_for_case() {
     case "$1" in
     01_happy_path)
-        printf '%s\n' "students + entry logs full happy path"
+        printf '%s\n' "학생 등록, 학생 조회, 입장 기록 등록, 입장 기록 조회가 모두 성공하는 케이스"
         ;;
     02_select_student_by_id)
-        printf '%s\n' "SELECT student by id returns one row"
+        printf '%s\n' "WHERE id = 303 으로 학생 한 줄만 조회하는 케이스"
         ;;
-    03_select_missing_student)
-        printf '%s\n' "missing student SELECT returns no rows"
+    03_duplicate_student_id)
+        printf '%s\n' "같은 학생 id 를 두 번 INSERT 해서 duplicate id 에러를 만드는 케이스"
         ;;
-    04_entry_log_invalid_datetime)
-        printf '%s\n' "invalid datetime is rejected"
+    04_unsupported_sql)
+        printf '%s\n' "DELETE 같은 미지원 SQL 문법을 넣어 parse 실패를 만드는 케이스"
         ;;
-    05_entry_log_unauthorized)
-        printf '%s\n' "unauthorized student cannot enter"
+    05_missing_semicolon)
+        printf '%s\n' "문장 끝 세미콜론이 빠져 splitter 단계에서 실패하는 케이스"
         ;;
-    06_entry_log_missing_student)
-        printf '%s\n' "missing student id blocks entry log insert"
+    06_unterminated_string)
+        printf '%s\n' "문자열 따옴표가 닫히지 않아 tokenizer 단계에서 실패하는 케이스"
         ;;
-    07_stop_after_middle_error)
-        printf '%s\n' "execution stops after a middle statement error"
+    07_entry_log_unauthorized)
+        printf '%s\n' "authorization=F 인 학생이 입장 기록을 남기려 할 때 실패하는 케이스"
+        ;;
+    08_entry_log_missing_student)
+        printf '%s\n' "학생 테이블에 없는 id 로 입장 기록을 남기려 할 때 실패하는 케이스"
+        ;;
+    09_stop_after_middle_error)
+        printf '%s\n' "중간 문장에서 에러가 나면 뒤 문장을 더 실행하지 않는 케이스"
         ;;
     *)
-        printf '%s\n' "unknown case"
+        printf '%s\n' "알 수 없는 케이스"
+        ;;
+    esac
+}
+
+label_for_case() {
+    case "$1" in
+    01_happy_path)
+        printf '%s\n' "샘플 01"
+        ;;
+    02_select_student_by_id)
+        printf '%s\n' "샘플 02"
+        ;;
+    03_duplicate_student_id)
+        printf '%s\n' "샘플 03"
+        ;;
+    04_unsupported_sql)
+        printf '%s\n' "샘플 04"
+        ;;
+    05_missing_semicolon)
+        printf '%s\n' "샘플 05"
+        ;;
+    06_unterminated_string)
+        printf '%s\n' "샘플 06"
+        ;;
+    07_entry_log_unauthorized)
+        printf '%s\n' "샘플 07"
+        ;;
+    08_entry_log_missing_student)
+        printf '%s\n' "샘플 08"
+        ;;
+    09_stop_after_middle_error)
+        printf '%s\n' "샘플 09"
+        ;;
+    *)
+        printf '%s\n' "$1"
         ;;
     esac
 }
@@ -41,7 +93,7 @@ first_line_or_empty() {
     if [ -s "$file_path" ]; then
         sed -n '1p' "$file_path"
     else
-        printf '%s\n' "(empty)"
+        printf '%s\n' "비어 있음"
     fi
 }
 
@@ -49,9 +101,9 @@ student_csv_status() {
     case_dir=$1
 
     if [ -f "$case_dir/data/student.csv" ]; then
-        printf '%s\n' "present"
+        printf '%s\n' "생성됨"
     else
-        printf '%s\n' "absent"
+        printf '%s\n' "없음"
     fi
 }
 
@@ -59,24 +111,16 @@ entry_log_status() {
     case_dir=$1
 
     if [ -f "$case_dir/data/entry_log.bin" ]; then
-        printf '%s bytes\n' "$(wc -c < "$case_dir/data/entry_log.bin" | tr -d ' ')"
+        printf '%s바이트\n' "$(wc -c < "$case_dir/data/entry_log.bin" | tr -d ' ')"
     else
-        printf '%s\n' "absent"
+        printf '%s\n' "없음"
     fi
 }
 
 rm -rf "$OUTPUT_ROOT"
 mkdir -p "$OUTPUT_ROOT"
 
-for case_name in \
-    01_happy_path \
-    02_select_student_by_id \
-    03_select_missing_student \
-    04_entry_log_invalid_datetime \
-    05_entry_log_unauthorized \
-    06_entry_log_missing_student \
-    07_stop_after_middle_error
-do
+for case_name in $CASE_NAMES; do
     case_dir="$OUTPUT_ROOT/$case_name"
 
     mkdir -p "$case_dir"
@@ -113,28 +157,22 @@ OVERVIEW_PATH="$OUTPUT_ROOT/DEMO_OVERVIEW.md"
 cat > "$OVERVIEW_PATH" <<EOF
 # Demo Overview
 
-이 파일은 \`manual_samples/\` 아래 샘플 SQL 7개를 실제로 실행한 결과를 한 번에 보기 위한 요약판이다.
+이 파일은 \`manual_samples/\` 아래 발표용 샘플 SQL 9개를 실제로 실행한 결과를 한 번에 보기 위한 요약판이다.
 
 - 재생성 명령: \`make demo\`
+- 발표용 웹 데모: [$OUTPUT_ROOT/web_demo/index.html]($OUTPUT_ROOT/web_demo/index.html)
 - 샘플 SQL 원본 설명: [$REPO_ROOT/manual_samples/README.md]($REPO_ROOT/manual_samples/README.md)
 - 전체 결과 루트: [$OUTPUT_ROOT]($OUTPUT_ROOT)
 
-## Summary
+## 요약
 
-| Case | Purpose | Exit | stdout gist | stderr gist | student.csv | entry_log.bin |
+| 샘플 | 목적 | 종료 코드 | 표준 출력 첫 줄 | 표준 에러 첫 줄 | student.csv | entry_log.bin |
 | --- | --- | --- | --- | --- | --- | --- |
 EOF
 
-for case_name in \
-    01_happy_path \
-    02_select_student_by_id \
-    03_select_missing_student \
-    04_entry_log_invalid_datetime \
-    05_entry_log_unauthorized \
-    06_entry_log_missing_student \
-    07_stop_after_middle_error
-do
+for case_name in $CASE_NAMES; do
     case_dir="$OUTPUT_ROOT/$case_name"
+    case_label=$(label_for_case "$case_name")
     purpose=$(purpose_for_case "$case_name")
     exit_code=$(cat "$case_dir/exit_code.txt")
     stdout_gist=$(first_line_or_empty "$case_dir/stdout.txt")
@@ -143,7 +181,7 @@ do
     entry_status=$(entry_log_status "$case_dir")
 
     printf '| %s | %s | %s | %s | %s | %s | %s |\n' \
-        "$case_name" \
+        "$case_label" \
         "$purpose" \
         "$exit_code" \
         "$stdout_gist" \
@@ -154,11 +192,11 @@ done
 
 cat >> "$OVERVIEW_PATH" <<EOF
 
-## Quick Start
+## 빠른 시작
 
 발표 때 가장 먼저 열 파일:
 
-- [$OVERVIEW_PATH]($OVERVIEW_PATH)
+- [$OUTPUT_ROOT/web_demo/index.html]($OUTPUT_ROOT/web_demo/index.html)
 
 그 다음 필요하면 각 케이스 폴더 안의 아래 파일만 보면 된다.
 
@@ -169,31 +207,24 @@ cat >> "$OVERVIEW_PATH" <<EOF
 - \`data/entry_log.bin\`: 실제 binary 파일
 - \`entry_log.bin.hex.txt\`: binary를 사람이 읽기 쉬운 hex dump로 변환한 파일
 
-## Details
+## 상세
 EOF
 
-for case_name in \
-    01_happy_path \
-    02_select_student_by_id \
-    03_select_missing_student \
-    04_entry_log_invalid_datetime \
-    05_entry_log_unauthorized \
-    06_entry_log_missing_student \
-    07_stop_after_middle_error
-do
+for case_name in $CASE_NAMES; do
     case_dir="$OUTPUT_ROOT/$case_name"
+    case_label=$(label_for_case "$case_name")
     purpose=$(purpose_for_case "$case_name")
     exit_code=$(cat "$case_dir/exit_code.txt")
     student_status=$(student_csv_status "$case_dir")
     entry_status=$(entry_log_status "$case_dir")
 
     {
-        printf '### %s\n\n' "$case_name"
-        printf '%s\n' "- purpose: $purpose"
-        printf '%s\n' "- exit_code: $exit_code"
+        printf '### %s\n\n' "$case_label"
+        printf '%s\n' "- 목적: $purpose"
+        printf '%s\n' "- 종료 코드: $exit_code"
         printf '%s\n' "- student.csv: $student_status"
         printf '%s\n' "- entry_log.bin: $entry_status"
-        printf '%s\n' "- files:"
+        printf '%s\n' "- 파일:"
         printf '  - [%s/query.sql](%s/query.sql)\n' "$case_dir" "$case_dir"
         printf '  - [%s/stdout.txt](%s/stdout.txt)\n' "$case_dir" "$case_dir"
         printf '  - [%s/stderr.txt](%s/stderr.txt)\n' "$case_dir" "$case_dir"
@@ -228,4 +259,6 @@ do
     } >> "$OVERVIEW_PATH"
 done
 
+WEB_DEMO_PATH=$(python3 "$REPO_ROOT/scripts/build_demo_site.py" "$REPO_ROOT" "$OUTPUT_ROOT")
 printf '%s\n' "$OVERVIEW_PATH"
+printf '%s\n' "$WEB_DEMO_PATH"
