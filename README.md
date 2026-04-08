@@ -2,9 +2,22 @@
 
 C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. 이 저장소의 목표는 범용 DBMS를 만드는 것이 아니라, 정해진 두 테이블만 대상으로 `INSERT` 와 `SELECT` 를 처리하는 최소 기능의 SQL processor를 만드는 것입니다.
 
-현재 저장소는 단계적으로 구현 중이며, Step 1 기준으로는 SQL 파일 읽기와 `;` 기준 문장 분리가 동작합니다. 아래 README는 [`sql_processor_codex_spec.md`](sql_processor_codex_spec.md) 기준의 최종 목표 범위와 전체 구조를 함께 정리한 문서입니다.
+현재 저장소는 단계적으로 구현 중이며, 현재 기준으로는 Step 3까지 진행되어 SQL 파일 읽기, `;` 기준 문장 분리, tokenizer, parser(AST 생성)까지 각각 모듈로 구현되어 있습니다. 다만 CLI 메인 흐름은 아직 executor/storage 단계와 연결되지 않았기 때문에, `./sql_processor` 실행 결과는 여전히 Step 1처럼 분리된 raw statement 출력에 머물러 있습니다.
+
+아래 README는 "현재 구현 상태"와 [`sql_processor_codex_spec.md`](sql_processor_codex_spec.md) 기준의 "최종 목표 범위"를 구분해서 정리한 문서입니다.
+
+## Current Status
+
+- Step 1 완료: SQL 파일 전체 읽기, 세미콜론 기준 문장 분리
+- Step 2 완료: 최소 SQL tokenizer 구현
+- Step 3 완료: 지원하는 5가지 SQL 형태를 AST로 바꾸는 parser 구현
+- 테스트 완료: `test_step1`, `test_tokenizer`, `test_parser`
+- 미구현: executor, storage(CSV/Binary), authorization 검사, datetime 검증, end-to-end 실행
+- 현재 `sql_processor` CLI 동작: split된 SQL 문장을 그대로 출력
 
 ## Project Overview
+
+아래 항목은 최종 목표 기준 동작입니다.
 
 - 입력은 `./sql_processor <sql_file_path>` 형태의 CLI 한 가지입니다.
 - SQL 파일 안의 여러 문장을 순서대로 실행합니다.
@@ -15,7 +28,7 @@ C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. �
 
 ## Supported SQL
 
-이 프로젝트는 아래 다섯 가지 문법만 지원하는 것을 목표로 합니다.
+이 프로젝트는 아래 다섯 가지 문법만 지원하도록 설계되어 있으며, Step 3 parser도 정확히 이 다섯 가지 패턴만 허용합니다.
 
 ```sql
 INSERT INTO STUDENT_CSV VALUES (id, 'name', class);
@@ -40,7 +53,7 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = <int>;
 
 ## Overall Flow
 
-현재 구현된 범위는 `SQL file read -> statement split` 까지입니다. 아래 mermaid 다이어그램은 스펙 기준의 전체 목표 실행 흐름입니다.
+현재 모듈 구현 범위는 `SQL file read -> statement split -> tokenizer -> parser(AST)` 까지입니다. 다만 `main.c` 에서는 아직 parser 이후 단계가 연결되지 않았습니다. 아래 mermaid 다이어그램은 Step 4 이후를 포함한 최종 목표 실행 흐름입니다.
 
 ```mermaid
 flowchart TD
@@ -77,6 +90,8 @@ flowchart TD
 ```
 
 ## DB Architecture
+
+아래 그림은 현재 구현이 아니라 최종 목표 아키텍처입니다.
 
 <img width="2684" height="2175" alt="DOM to VNode Transformation-2026-04-08-020556" src="https://github.com/user-attachments/assets/df2cf076-178c-4514-8c5a-ca22e05da1a1" />
 
@@ -162,7 +177,15 @@ make
 - `SELECT` 결과는 `stdout` 에 출력합니다.
 - 에러는 `stderr` 에 출력합니다.
 
-현재 Step 1 구현에서는 문장 분리 결과를 그대로 출력합니다.
+현재 구현에서는 아직 executor가 없으므로, CLI는 Step 1과 동일하게 문장 분리 결과를 그대로 출력합니다.
+
+예를 들어 `tests/fixtures/three_statements.sql` 을 실행하면 현재는 아래처럼 나옵니다.
+
+```text
+INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);
+SELECT * FROM STUDENT_CSV;
+SELECT * FROM STUDENT_CSV WHERE id = 302;
+```
 
 ## Test
 
@@ -170,15 +193,20 @@ make
 make test
 ```
 
-현재 자동화 테스트는 아래 기초 동작을 검증합니다.
+현재 자동화 테스트는 Step 3 기준으로 아래 동작을 검증합니다.
 
 - SQL 파일 전체 읽기
 - 단일 문장 분리
 - 다중 문장 분리와 순서 보존
 - 앞뒤 공백 제거
 - CLI smoke test
+- `SELECT` / `INSERT` tokenizer 동작
+- 공백 무시, 문자열 토큰 처리
+- 잘못된 문자열/지원하지 않는 문자 거부
+- 지원하는 5가지 SQL 패턴 parser 성공
+- 지원하지 않는 `SELECT id ...`, 잘못된 `WHERE`, 알 수 없는 테이블명, 값 개수 불일치 거부
 
-최종 목표 기준으로는 tokenizer, parser, authorization, datetime, CSV/Binary storage, 기능 테스트까지 확장합니다.
+아직 없는 테스트는 executor, authorization, datetime, CSV/Binary storage, end-to-end 실행 테스트입니다.
 
 ## Example SQL File
 
@@ -194,6 +222,8 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = 302;
 ```
 
 ## Example Output
+
+아래 출력은 최종 목표 기준 예시입니다. 현재 CLI는 아직 이 결과를 만들지 않습니다.
 
 `SELECT * FROM STUDENT_CSV;`
 
@@ -238,7 +268,10 @@ no rows found
 
 ## Future Improvements
 
-- tokenizer, parser, executor, storage 모듈을 단계적으로 완성
+- executor와 storage 모듈 구현
+- `main.c` 에 tokenizer/parser/executor 흐름 연결
+- authorization 규칙 검사 구현
+- datetime 형식 검증과 timestamp 변환 구현
 - `data/student.csv`, `data/entry_log.bin` 초기화와 예외 처리 보강
 - end-to-end 기능 테스트 추가
 - 에러 메시지 표준화
