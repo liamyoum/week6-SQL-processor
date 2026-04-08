@@ -143,9 +143,9 @@ static void test_cli_insert_and_select_entry_logs_by_id(void)
     stderr_text = NULL;
 
     run_cli_and_capture(
+        "INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);\n"
         "INSERT INTO ENTRY_LOG_BIN VALUES ('2026-04-08 09:00:00', 302);\n"
         "INSERT INTO ENTRY_LOG_BIN VALUES ('2026-04-08 18:30:00', 302);\n"
-        "INSERT INTO ENTRY_LOG_BIN VALUES ('2026-04-08 12:00:00', 303);\n"
         "SELECT * FROM ENTRY_LOG_BIN WHERE id = 302;\n",
         &stdout_text,
         &stderr_text,
@@ -159,7 +159,7 @@ static void test_cli_insert_and_select_entry_logs_by_id(void)
         "2026-04-08 18:30:00,302\n",
         stdout_text);
     ASSERT_STRING_EQ("", stderr_text);
-    ASSERT_TRUE(entry_log_size == 36, "three binary rows should occupy 36 bytes");
+    ASSERT_TRUE(entry_log_size == 24, "two authorized binary rows should occupy 24 bytes");
 
     free(stdout_text);
     free(stderr_text);
@@ -177,6 +177,7 @@ static void test_cli_insert_entry_log_rejects_invalid_datetime(void)
     stderr_text = NULL;
 
     run_cli_and_capture(
+        "INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);\n"
         "INSERT INTO ENTRY_LOG_BIN VALUES ('2026/04/08 09:00:00', 302);\n",
         &stdout_text,
         &stderr_text,
@@ -204,6 +205,7 @@ static void test_cli_select_missing_entry_log_prints_no_rows_found(void)
     stderr_text = NULL;
 
     run_cli_and_capture(
+        "INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);\n"
         "INSERT INTO ENTRY_LOG_BIN VALUES ('2026-04-08 09:00:00', 302);\n"
         "SELECT * FROM ENTRY_LOG_BIN WHERE id = 999;\n",
         &stdout_text,

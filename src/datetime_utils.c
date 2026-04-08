@@ -108,6 +108,10 @@ static int64_t days_from_civil(int year, int month, int day)
     unsigned int day_of_year;
     unsigned int day_of_era;
 
+    /*
+     * "년-월-일"을 1970-01-01부터 지난 총 일수로 바꾸는 보조 함수다.
+     * 타임존 API에 의존하지 않아 테스트 환경이 달라도 같은 결과를 낸다.
+     */
     adjusted_year = year - (month <= 2);
     era = (adjusted_year >= 0) ? (adjusted_year / 400) : ((adjusted_year - 399) / 400);
     year_of_era = (unsigned int)(adjusted_year - (era * 400));
@@ -134,6 +138,10 @@ static void civil_from_days(
     unsigned int month;
     unsigned int day;
 
+    /*
+     * 위의 days_from_civil 반대 방향 계산이다.
+     * timestamp를 다시 사람이 읽는 날짜로 출력할 때 사용한다.
+     */
     shifted_days = days_since_epoch + 719468LL;
     era = (shifted_days >= 0) ?
         (shifted_days / 146097LL) :
@@ -166,6 +174,7 @@ int parse_datetime_string(const char *text, DateTimeParts *out_parts)
         return 1;
     }
 
+    /* 입력 형식은 정확히 YYYY-MM-DD HH:MM:SS 하나만 허용한다. */
     if (text[4] != '-' ||
         text[7] != '-' ||
         text[10] != ' ' ||
@@ -206,6 +215,7 @@ int datetime_parts_to_unix_timestamp(
         return 1;
     }
 
+    /* 날짜 부분과 시각 부분을 따로 계산한 뒤 초 단위 timestamp로 합친다. */
     days_since_epoch = days_from_civil(parts->year, parts->month, parts->day);
     seconds_in_day = (int64_t)parts->hour * 3600LL +
         (int64_t)parts->minute * 60LL +
@@ -236,6 +246,10 @@ int format_unix_timestamp(
     days_since_epoch = timestamp / 86400LL;
     seconds_in_day = timestamp % 86400LL;
 
+    /*
+     * 음수 timestamp에서도 시/분/초가 0~86399 범위를 유지하도록
+     * 하루 단위와 남은 초를 다시 정규화한다.
+     */
     if (seconds_in_day < 0) {
         seconds_in_day += 86400LL;
         days_since_epoch -= 1LL;

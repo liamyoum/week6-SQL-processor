@@ -69,6 +69,7 @@ static int ensure_list_capacity(EntryLogRecordList *list, size_t *capacity)
 
 static int write_int64_field(FILE *file, int64_t value)
 {
+    /* Step 5 제약에 맞춰 struct 전체가 아니라 필드 하나씩 직접 쓴다. */
     return fwrite(&value, sizeof(value), 1U, file) == 1U ? 0 : 1;
 }
 
@@ -85,6 +86,10 @@ static int read_exact_bytes(
 {
     size_t bytes_read;
 
+    /*
+     * binary 포맷은 고정 길이 레코드라서
+     * "지금 필요한 바이트 수를 정확히 다 읽었는가"가 중요하다.
+     */
     bytes_read = fread(buffer, 1U, byte_count, file);
     if (bytes_read == byte_count) {
         *out_reached_eof = 0;
@@ -156,6 +161,7 @@ EntryLogStorageStatus append_entry_log_record(
         return ENTRY_LOG_STORAGE_IO_ERROR;
     }
 
+    /* 레코드 순서는 항상 entered_at 8바이트 다음 id 4바이트다. */
     if (write_int64_field(file, record->entered_at) != 0 ||
         write_int32_field(file, record->id) != 0) {
         fclose(file);
@@ -197,6 +203,10 @@ EntryLogStorageStatus read_entry_log_records_by_id(
         EntryLogRecord record;
         int reached_eof;
 
+        /*
+         * 한 레코드를 12바이트 단위로 복원한다.
+         * 앞 8바이트를 읽은 뒤 바로 뒤의 4바이트까지 있어야 정상 파일이다.
+         */
         if (read_exact_bytes(file, &record.entered_at, sizeof(record.entered_at), &reached_eof) != 0) {
             fclose(file);
             free_entry_log_record_list(&list);
@@ -218,6 +228,7 @@ EntryLogStorageStatus read_entry_log_records_by_id(
             continue;
         }
 
+        /* SELECT ... WHERE id = <int> 에 맞는 row만 결과 배열에 담는다. */
         if (ensure_list_capacity(&list, &capacity) != 0) {
             fclose(file);
             free_entry_log_record_list(&list);

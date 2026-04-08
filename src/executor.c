@@ -52,6 +52,24 @@ static void print_entry_log_header(FILE *output_stream)
     fprintf(output_stream, "%s\n", ENTRY_LOG_OUTPUT_HEADER);
 }
 
+static int find_student_for_entry_log(
+    const char *student_csv_path,
+    int id,
+    StudentRecord *out_record,
+    int *out_found,
+    FILE *error_stream)
+{
+    StudentStorageStatus status;
+
+    status = find_student_record_by_id(student_csv_path, id, out_record, out_found);
+    if (status != STUDENT_STORAGE_OK) {
+        fprintf(error_stream, "failed to read student records\n");
+        return 1;
+    }
+
+    return 0;
+}
+
 static int print_entry_log_record(FILE *output_stream, const EntryLogRecord *record)
 {
     char datetime_text[DATETIME_BUFFER_SIZE];
@@ -164,28 +182,54 @@ static int execute_select_student_by_id(
 
 static int execute_insert_entry_log(
     const Statement *statement,
+    const char *student_csv_path,
     const char *entry_log_bin_path,
     FILE *error_stream)
 {
     DateTimeParts parts;
     int64_t timestamp;
     EntryLogRecord record;
+    StudentRecord student_record;
+    int found;
     EntryLogStorageStatus status;
 
-    /*
-     * Step 5에서는 datetime 검증과 binary 저장까지만 연결한다.
-     * 학생 존재 여부 / authorization 검사는 Step 6에서 추가한다.
-     */
+    student_record.name = NULL;
+    found = 0;
+
     if (parse_datetime_string(statement->data.insert_entry_log.entered_at, &parts) != 0 ||
         datetime_parts_to_unix_timestamp(&parts, &timestamp) != 0) {
         fprintf(error_stream, "failed to insert entry log: invalid datetime\n");
         return 1;
     }
 
+    if (find_student_for_entry_log(
+            student_csv_path,
+            statement->data.insert_entry_log.id,
+            &student_record,
+            &found,
+            error_stream) != 0) {
+        free_student_record(&student_record);
+        return 1;
+    }
+
+    if (!found) {
+        fprintf(error_stream, "failed to insert entry log: student id %d not found\n", statement->data.insert_entry_log.id);
+        free_student_record(&student_record);
+        return 1;
+    }
+
+    if (student_record.authorization != 'T') {
+        fprintf(error_stream, "failed to insert entry log: unauthorized student id %d\n", statement->data.insert_entry_log.id);
+        free_student_record(&student_record);
+        return 1;
+    }
+
+    /* 입력은 문자열이지만 저장은 binary timestamp + id 조합으로 바꿔서 넣는다. */
     record.entered_at = timestamp;
     record.id = statement->data.insert_entry_log.id;
 
     status = append_entry_log_record(entry_log_bin_path, &record);
+    free_student_record(&student_record);
     if (status != ENTRY_LOG_STORAGE_OK) {
         fprintf(error_stream, "failed to insert entry log\n");
         return 1;
@@ -216,6 +260,7 @@ static int execute_select_entry_log_by_id(
         return 0;
     }
 
+    /* 저장은 timestamp여도 SELECT 결과는 사람이 읽는 datetime 문자열로 보여 준다. */
     print_entry_log_header(output_stream);
     for (i = 0U; i < list.count; i++) {
         if (print_entry_log_record(output_stream, &list.items[i]) != 0) {
@@ -259,7 +304,11 @@ int execute_statement(
             error_stream);
 
     case STATEMENT_INSERT_ENTRY_LOG:
-        return execute_insert_entry_log(statement, entry_log_bin_path, error_stream);
+        return execute_insert_entry_log(
+            statement,
+            student_csv_path,
+            entry_log_bin_path,
+            error_stream);
 
     case STATEMENT_SELECT_ENTRY_LOG_BY_ID:
         return execute_select_entry_log_by_id(
