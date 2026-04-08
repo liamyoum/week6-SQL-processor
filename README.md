@@ -244,23 +244,29 @@ make test
 make demo
 ```
 
-이 명령은 `manual_samples/` 아래 샘플 SQL 7개를 한 번에 실행하고,
+이 명령은 `manual_samples/` 아래 발표용 샘플 SQL 9개를 한 번에 실행하고,
 결과를 `manual_runs/latest/` 아래에 정리한다.
 
-발표 때는 아래 파일 하나만 열면 된다.
+발표 때는 아래 HTML 파일 하나만 열면 된다.
 
-- `manual_runs/latest/DEMO_OVERVIEW.md`
+- `manual_runs/latest/web_demo/index.html`
 
-이 파일에는:
+이 웹 데모에는:
 
 - 각 샘플의 목적
-- exit code
-- `stdout` 첫 줄 요약
-- `stderr` 첫 줄 요약
-- `student.csv` / `entry_log.bin` 존재 여부
-- 각 케이스별 원본 SQL, 실제 `stdout`, `stderr`, `student.csv`, binary hex dump 링크
+- 종료 코드
+- 실제 CLI 실행 명령
+- 샘플 SQL 원문
+- 테이블 정의
+- 케이스 실행 후 현재 테이블 상태
+- `stdout` 와 `stderr`
+- 케이스별 raw file 링크
 
-가 한 번에 정리된다.
+가 케이스별로 한 화면에 정리된다.
+
+Markdown 요약판도 같이 생성된다.
+
+- `manual_runs/latest/DEMO_OVERVIEW.md`
 
 샘플 SQL 원본 설명은 아래 문서에 있다.
 
