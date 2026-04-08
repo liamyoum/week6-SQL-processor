@@ -20,7 +20,7 @@ CASE_METADATA = [
         "id": "02_select_student_by_id",
         "short_label": "샘플 02",
         "title": "학생 단건 조회",
-        "purpose": "WHERE id = 303 으로 학생 한 줄만 조회하는 케이스",
+        "purpose": "WHERE id = 2 로 학생 한 줄만 조회하는 케이스",
     },
     {
         "id": "03_duplicate_student_id",
@@ -29,40 +29,16 @@ CASE_METADATA = [
         "purpose": "같은 학생 id 를 두 번 INSERT 해서 duplicate id 에러를 만드는 케이스",
     },
     {
-        "id": "04_unsupported_sql",
+        "id": "04_entry_log_unauthorized",
         "short_label": "샘플 04",
-        "title": "지원하지 않는 SQL",
-        "purpose": "DELETE 같은 미지원 SQL 문법을 넣어 parse 실패를 만드는 케이스",
-    },
-    {
-        "id": "05_missing_semicolon",
-        "short_label": "샘플 05",
-        "title": "세미콜론 누락",
-        "purpose": "문장 끝 세미콜론이 빠져 splitter 단계에서 실패하는 케이스",
-    },
-    {
-        "id": "06_unterminated_string",
-        "short_label": "샘플 06",
-        "title": "닫히지 않은 문자열",
-        "purpose": "문자열 따옴표가 닫히지 않아 tokenizer 단계에서 실패하는 케이스",
-    },
-    {
-        "id": "07_entry_log_unauthorized",
-        "short_label": "샘플 07",
         "title": "권한 없는 학생",
         "purpose": "authorization=F 인 학생이 입장 기록을 남기려 할 때 실패하는 케이스",
     },
     {
-        "id": "08_entry_log_missing_student",
-        "short_label": "샘플 08",
+        "id": "05_entry_log_missing_student",
+        "short_label": "샘플 05",
         "title": "없는 학생 ID",
         "purpose": "학생 테이블에 없는 id 로 입장 기록을 남기려 할 때 실패하는 케이스",
-    },
-    {
-        "id": "09_stop_after_middle_error",
-        "short_label": "샘플 09",
-        "title": "중간 에러 후 중단",
-        "purpose": "중간 문장에서 에러가 나면 뒤 문장을 더 실행하지 않는 케이스",
     },
 ]
 
