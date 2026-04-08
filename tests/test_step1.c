@@ -125,36 +125,12 @@ static void test_split_sql_statements_trim_leading_whitespace(void)
     free_statement_list(&statements);
 }
 
-static void test_cli_prints_split_statements(void)
-{
-    const char *command =
-        "./sql_processor tests/fixtures/three_statements.sql "
-        "> /tmp/sql_processor_step1_cli_output.txt";
-    const char *expected_output =
-        "INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);\n"
-        "SELECT * FROM STUDENT_CSV;\n"
-        "SELECT * FROM STUDENT_CSV WHERE id = 302;\n";
-    char *actual_output;
-
-    actual_output = NULL;
-
-    ASSERT_TRUE(system(command) == 0, "cli smoke test command should succeed");
-    ASSERT_TRUE(
-        read_text_file("/tmp/sql_processor_step1_cli_output.txt", &actual_output) == 0,
-        "cli smoke test should produce readable output");
-    ASSERT_STRING_EQ(expected_output, actual_output);
-
-    remove("/tmp/sql_processor_step1_cli_output.txt");
-    free(actual_output);
-}
-
 int main(void)
 {
     RUN_TEST(test_read_text_file_reads_full_contents);
     RUN_TEST(test_split_sql_statements_single_statement);
     RUN_TEST(test_split_sql_statements_multiple_statements_preserve_order);
     RUN_TEST(test_split_sql_statements_trim_leading_whitespace);
-    RUN_TEST(test_cli_prints_split_statements);
 
     printf("step1 tests passed (%d)\n", tests_run);
     return 0;

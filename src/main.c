@@ -1,17 +1,77 @@
+#include "executor.h"
+#include "parser.h"
 #include "sql_file_reader.h"
 #include "statement_splitter.h"
+#include "tokenizer.h"
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#define STUDENT_CSV_PATH "data/student.csv"
+
+static int execute_sql_statements(const StatementList *statements)
+{
+    size_t i;
+
+    /*
+     * splitter가 나눈 문장 문자열을 하나씩 꺼내서
+     * tokenizer -> parser -> executor 순서로 실행한다.
+     *
+     * 문장 하나라도 실패하면 즉시 중단한다.
+     * 이것이 명세의 "에러 시 이후 문장 실행 중단" 규칙이다.
+     */
+    for (i = 0U; i < statements->count; i++) {
+        TokenList tokens;
+        Statement statement;
+        int parsed_successfully;
+
+        tokens.items = NULL;
+        tokens.count = 0U;
+        parsed_successfully = 0;
+
+        if (tokenize_sql(statements->items[i], &tokens) != 0) {
+            fprintf(stderr, "failed to tokenize statement\n");
+            free_token_list(&tokens);
+            return 1;
+        }
+
+        if (parse_statement(&tokens, &statement) != 0) {
+            fprintf(stderr, "failed to parse statement\n");
+            free_token_list(&tokens);
+            return 1;
+        }
+
+        parsed_successfully = 1;
+
+        if (execute_statement(&statement, STUDENT_CSV_PATH, stdout, stderr) != 0) {
+            if (parsed_successfully) {
+                free_statement(&statement);
+            }
+
+            free_token_list(&tokens);
+            return 1;
+        }
+
+        if (parsed_successfully) {
+            free_statement(&statement);
+        }
+
+        free_token_list(&tokens);
+    }
+
+    return 0;
+}
 
 int main(int argc, char *argv[])
 {
     const char *sql_file_path;
     char *sql_text;
     StatementList statements;
-    size_t i;
 
-    /* Step 1에서는 ./sql_processor <sql_file_path> 형태만 받는다. */
+    /*
+     * CLI 형식은 Step 1과 동일하다.
+     * 인자는 SQL 파일 경로 하나만 받는다.
+     */
     if (argc != 2) {
         fprintf(stderr, "usage: %s <sql_file_path>\n", argv[0]);
         return 1;
@@ -37,9 +97,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Step 1에서는 해석하지 않고 raw statement를 그대로 출력만 한다. */
-    for (i = 0; i < statements.count; i++) {
-        printf("%s\n", statements.items[i]);
+    /*
+     * Step 4부터는 문장 문자열을 그대로 출력하지 않는다.
+     * 각 문장을 실제로 tokenizing / parsing / execution까지 진행한다.
+     */
+    if (execute_sql_statements(&statements) != 0) {
+        free_statement_list(&statements);
+        free(sql_text);
+        return 1;
     }
 
     /* malloc으로 받은 메모리는 마지막에 직접 해제해야 한다. */

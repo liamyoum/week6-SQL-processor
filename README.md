@@ -2,7 +2,7 @@
 
 C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. 이 저장소의 목표는 범용 DBMS를 만드는 것이 아니라, 정해진 두 테이블만 대상으로 `INSERT` 와 `SELECT` 를 처리하는 최소 기능의 SQL processor를 만드는 것입니다.
 
-현재 저장소는 단계적으로 구현 중이며, 현재 기준으로는 Step 3까지 진행되어 SQL 파일 읽기, `;` 기준 문장 분리, tokenizer, parser(AST 생성)까지 각각 모듈로 구현되어 있습니다. 다만 CLI 메인 흐름은 아직 executor/storage 단계와 연결되지 않았기 때문에, `./sql_processor` 실행 결과는 여전히 Step 1처럼 분리된 raw statement 출력에 머물러 있습니다.
+현재 저장소는 단계적으로 구현 중이며, 현재 기준으로는 Step 4까지 진행되어 SQL 파일 읽기, `;` 기준 문장 분리, tokenizer, parser(AST 생성), `STUDENT_CSV` executor/storage까지 구현되어 있습니다. `./sql_processor` 는 이제 학생 INSERT / SELECT를 실제 실행하며, `ENTRY_LOG_BIN` 관련 실행은 아직 Step 5 이후 범위입니다.
 
 아래 README는 "현재 구현 상태"와 [`sql_processor_codex_spec.md`](sql_processor_codex_spec.md) 기준의 "최종 목표 범위"를 구분해서 정리한 문서입니다.
 
@@ -11,9 +11,14 @@ C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. �
 - Step 1 완료: SQL 파일 전체 읽기, 세미콜론 기준 문장 분리
 - Step 2 완료: 최소 SQL tokenizer 구현
 - Step 3 완료: 지원하는 5가지 SQL 형태를 AST로 바꾸는 parser 구현
-- 테스트 완료: `test_step1`, `test_tokenizer`, `test_parser`
-- 미구현: executor, storage(CSV/Binary), authorization 검사, datetime 검증, end-to-end 실행
-- 현재 `sql_processor` CLI 동작: split된 SQL 문장을 그대로 출력
+- Step 4 완료: `STUDENT_CSV` CSV storage + executor + CLI 실행 연결
+- 테스트 완료: `test_step1`, `test_tokenizer`, `test_parser`, `test_student_storage`, `test_step4`
+- 미구현: `ENTRY_LOG_BIN` storage/executor, datetime 검증/변환
+- 현재 `sql_processor` CLI 동작:
+  - `INSERT INTO STUDENT_CSV ...`
+  - `SELECT * FROM STUDENT_CSV;`
+  - `SELECT * FROM STUDENT_CSV WHERE id = <int>;`
+  - `ENTRY_LOG_BIN` 관련 statement는 parser까지는 되지만 실행은 아직 지원하지 않음
 
 ## Project Overview
 
@@ -53,7 +58,7 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = <int>;
 
 ## Overall Flow
 
-현재 모듈 구현 범위는 `SQL file read -> statement split -> tokenizer -> parser(AST)` 까지입니다. 다만 `main.c` 에서는 아직 parser 이후 단계가 연결되지 않았습니다. 아래 mermaid 다이어그램은 Step 4 이후를 포함한 최종 목표 실행 흐름입니다.
+현재 모듈 구현 범위는 `SQL file read -> statement split -> tokenizer -> parser(AST) -> student executor -> student CSV storage` 까지입니다. 다만 `ENTRY_LOG_BIN` 쪽 executor/storage는 아직 연결되지 않았습니다. 아래 mermaid 다이어그램은 최종 목표 실행 흐름입니다.
 
 ```mermaid
 flowchart TD
@@ -177,14 +182,15 @@ make
 - `SELECT` 결과는 `stdout` 에 출력합니다.
 - 에러는 `stderr` 에 출력합니다.
 
-현재 구현에서는 아직 executor가 없으므로, CLI는 Step 1과 동일하게 문장 분리 결과를 그대로 출력합니다.
+현재 구현에서는 `STUDENT_CSV` 관련 statement를 실제 실행합니다. `ENTRY_LOG_BIN` 관련 statement는 아직 Step 4 범위 밖이므로 에러로 중단합니다.
 
-예를 들어 `tests/fixtures/three_statements.sql` 을 실행하면 현재는 아래처럼 나옵니다.
+예를 들어 학생 3명을 INSERT한 뒤 `SELECT * FROM STUDENT_CSV;` 를 실행하면 현재는 아래처럼 나옵니다.
 
 ```text
-INSERT INTO STUDENT_CSV VALUES (302, 'Kim', 302);
-SELECT * FROM STUDENT_CSV;
-SELECT * FROM STUDENT_CSV WHERE id = 302;
+id,name,class,authorization
+302,Kim,302,T
+303,Lee,303,F
+100,Coach,100,T
 ```
 
 ## Test
@@ -193,7 +199,7 @@ SELECT * FROM STUDENT_CSV WHERE id = 302;
 make test
 ```
 
-현재 자동화 테스트는 Step 3 기준으로 아래 동작을 검증합니다.
+현재 자동화 테스트는 Step 4 기준으로 아래 동작을 검증합니다.
 
 - SQL 파일 전체 읽기
 - 단일 문장 분리
@@ -205,8 +211,13 @@ make test
 - 잘못된 문자열/지원하지 않는 문자 거부
 - 지원하는 5가지 SQL 패턴 parser 성공
 - 지원하지 않는 `SELECT id ...`, 잘못된 `WHERE`, 알 수 없는 테이블명, 값 개수 불일치 거부
+- `student.csv` 자동 생성과 헤더 작성
+- 학생 row append / 전체 조회 / id 조회
+- 중복 id 거부
+- authorization 계산 결과가 CSV와 SELECT 출력에 반영되는지
+- CLI 기준 Step 4 기능 흐름
 
-아직 없는 테스트는 executor, authorization, datetime, CSV/Binary storage, end-to-end 실행 테스트입니다.
+아직 없는 테스트는 `ENTRY_LOG_BIN` storage/executor, datetime 검증/변환, 권한 검사 관련 테스트입니다.
 
 ## Example SQL File
 
@@ -223,7 +234,7 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = 302;
 
 ## Example Output
 
-아래 출력은 최종 목표 기준 예시입니다. 현재 CLI는 아직 이 결과를 만들지 않습니다.
+`STUDENT_CSV` 예시는 현재 CLI에서 이미 동작합니다. `ENTRY_LOG_BIN` 예시는 최종 목표 기준입니다.
 
 `SELECT * FROM STUDENT_CSV;`
 
@@ -268,9 +279,8 @@ no rows found
 
 ## Future Improvements
 
-- executor와 storage 모듈 구현
-- `main.c` 에 tokenizer/parser/executor 흐름 연결
-- authorization 규칙 검사 구현
+- `ENTRY_LOG_BIN` storage와 executor 구현
+- `ENTRY_LOG_BIN` INSERT 시 학생 존재 여부 / authorization 규칙 검사 구현
 - datetime 형식 검증과 timestamp 변환 구현
 - `data/student.csv`, `data/entry_log.bin` 초기화와 예외 처리 보강
 - end-to-end 기능 테스트 추가
