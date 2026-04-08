@@ -22,7 +22,7 @@
                     <p class="hero-kicker">STEP 6</p>
                     <h1>SQL 처리기 웹 데모</h1>
                     <p class="hero-text">
-                        케이스를 누르면 SQL 파일, 실행 명령, 테이블 정의, 현재 저장 상태,
+                        케이스를 누르면 SQL 파일, 실행 명령, 두 테이블 정의, 현재 저장 상태,
                         표준 출력, 표준 에러가 한 화면에서 함께 바뀐다.
                     </p>
                 </div>
@@ -107,23 +107,30 @@
 
                 <section class="window-panel">
                     <div class="title-bar">
-                        <div class="title-bar-text">테이블 구조와 현재 상태</div>
+                        <div class="title-bar-text">테이블 정의</div>
                         <div class="title-bar-controls" aria-hidden="true">
                             <span></span>
                         </div>
                     </div>
                     <div class="window-body">
-                        <p class="helper-text relation-helper">
-                            테이블마다 왼쪽은 정의, 오른쪽은 이 케이스 실행이 끝난 직후의 실제 저장 상태를 보여 준다.
-                        </p>
-                        <div class="relation-stack">
-                            <section id="student-table-panel" class="table-window table-student"></section>
-                            <div class="relation-link">
-                                <div class="relation-line"></div>
-                                <p>id로 연결</p>
-                                <div class="relation-line"></div>
-                            </div>
-                            <section id="entry-table-panel" class="table-window table-entry"></section>
+                        <div class="table-pair-grid">
+                            <section id="student-definition-panel" class="table-window table-student"></section>
+                            <section id="entry-definition-panel" class="table-window table-entry"></section>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="window-panel">
+                    <div class="title-bar">
+                        <div class="title-bar-text">현재 테이블 상태</div>
+                        <div class="title-bar-controls" aria-hidden="true">
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="window-body">
+                        <div class="table-pair-grid">
+                            <section id="student-state-panel" class="table-window table-student"></section>
+                            <section id="entry-state-panel" class="table-window table-entry"></section>
                         </div>
                     </div>
                 </section>

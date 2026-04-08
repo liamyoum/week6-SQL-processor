@@ -244,7 +244,7 @@ make test
 make demo
 ```
 
-이 명령은 `manual_samples/` 아래 발표용 샘플 SQL 9개를 한 번에 실행하고,
+이 명령은 `manual_samples/` 아래 발표용 샘플 SQL 5개를 한 번에 실행하고,
 결과를 `manual_runs/latest/` 아래에 정리한다.
 
 발표 때는 아래 HTML 파일 하나만 열면 된다.
@@ -257,7 +257,7 @@ make demo
 - 종료 코드
 - 실제 CLI 실행 명령
 - 샘플 SQL 원문
-- 테이블 정의
+- 두 테이블 정의
 - 케이스 실행 후 현재 테이블 상태
 - `stdout` 와 `stderr`
 - 케이스별 raw file 링크

@@ -143,8 +143,7 @@ textarea {
 
 .hero-text,
 .helper-text,
-.case-purpose,
-.table-helper {
+.case-purpose {
     margin: 12px 0 0;
     color: var(--text-subtle);
 }
@@ -360,29 +359,10 @@ textarea {
     margin-top: 18px;
 }
 
-.relation-helper {
-    margin-top: 0;
-    margin-bottom: 12px;
-}
-
-.relation-stack {
-    display: flex;
-    flex-direction: column;
+.table-pair-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 14px;
-}
-
-.relation-link {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    font-weight: 700;
-}
-
-.relation-line {
-    width: 2px;
-    height: 20px;
-    background: var(--window-shadow);
 }
 
 .table-student .mini-title-bar {
@@ -407,43 +387,15 @@ textarea {
         inset 2px 2px #dfdfdf;
 }
 
-.table-section {
-    margin-top: 10px;
-}
-
-.table-split-grid {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
-}
-
-.table-column {
+.table-window {
     min-width: 0;
 }
 
-.table-column-header {
+.table-meta-row {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.table-column-title {
-    margin: 0;
-    font-size: 16px;
-}
-
-.table-section:first-child {
-    margin-top: 0;
-}
-
-.table-section-title {
-    margin: 0 0 8px;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
 }
 
 .schema-table,
@@ -515,13 +467,12 @@ textarea {
     .masthead-body,
     .pane-grid,
     .metric-strip,
-    .table-split-grid {
+    .table-pair-grid {
         grid-template-columns: 1fr;
     }
 
     .case-heading,
-    .section-header,
-    .table-column-header {
+    .section-header {
         flex-direction: column;
         align-items: flex-start;
     }

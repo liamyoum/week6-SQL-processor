@@ -18,6 +18,18 @@
         { type: "int", field: "id", description: "학생 카드 ID" }
     ];
 
+    var STUDENT_TABLE_INFO = {
+        displayName: "크래프톤 정글 교육생 정보 DB",
+        logicalName: "STUDENT_CSV",
+        storageLabel: "CSV 저장"
+    };
+
+    var ENTRY_TABLE_INFO = {
+        displayName: "302호 출입 기록 LOG",
+        logicalName: "ENTRY_LOG_BIN",
+        storageLabel: "Binary 저장"
+    };
+
     var state = {
         caseIndex: 0
     };
@@ -34,8 +46,10 @@
         metricStrip: document.getElementById("metric-strip"),
         commandBlock: document.getElementById("command-block"),
         sqlBlock: document.getElementById("sql-block"),
-        studentTablePanel: document.getElementById("student-table-panel"),
-        entryTablePanel: document.getElementById("entry-table-panel"),
+        studentDefinitionPanel: document.getElementById("student-definition-panel"),
+        entryDefinitionPanel: document.getElementById("entry-definition-panel"),
+        studentStatePanel: document.getElementById("student-state-panel"),
+        entryStatePanel: document.getElementById("entry-state-panel"),
         stdoutBlock: document.getElementById("stdout-block"),
         stderrBlock: document.getElementById("stderr-block"),
         stdoutFileLink: document.getElementById("stdout-file-link"),
@@ -213,79 +227,80 @@
         return table;
     }
 
-    function buildCombinedTableColumn(title, helperText, metaText, tableNode) {
-        var column = createElement("section", "table-column");
-        var header = createElement("div", "table-column-header");
-        var titleNode = createElement("h4", "table-column-title", title);
-        var meta = createElement("span", "table-meta", metaText);
-        var helper = createElement("p", "table-helper", helperText);
+    function buildMetaRow(metaTexts) {
+        var metaRow = createElement("div", "table-meta-row");
 
-        header.appendChild(titleNode);
-        header.appendChild(meta);
-        column.appendChild(header);
-        column.appendChild(helper);
-        column.appendChild(tableNode);
-        return column;
+        metaTexts.forEach(function (text) {
+            metaRow.appendChild(createElement("span", "table-meta", text));
+        });
+
+        return metaRow;
     }
 
-    function renderCombinedTable(container, config) {
+    function renderTableCard(container, config) {
         var titleBar = createElement("div", "mini-title-bar");
         var body = createElement("div", "table-body");
-        var splitGrid = createElement("div", "table-split-grid");
-        var emptyMessage = config.fileExists ? "저장된 행이 없습니다." : "아직 파일이 생성되지 않았습니다.";
 
         container.innerHTML = "";
-        titleBar.appendChild(createElement("div", "mini-title-text", config.name));
-
-        splitGrid.appendChild(
-            buildCombinedTableColumn(
-                "테이블 정의",
-                "이 테이블에서 사용하는 필드 정의",
-                config.definitionMetaText,
-                buildSchemaTable(config.schemaRows)
-            )
-        );
-
-        splitGrid.appendChild(
-            buildCombinedTableColumn(
-                "현재 테이블 상태",
-                "이 케이스 실행이 끝난 직후 실제로 저장된 행",
-                config.stateMetaText,
-                buildDataTable(config.columnLabels, config.rowKeys, config.rows, emptyMessage)
-            )
-        );
-
-        body.appendChild(splitGrid);
+        titleBar.appendChild(createElement("div", "mini-title-text", config.displayName));
+        body.appendChild(buildMetaRow(config.metaTexts));
+        body.appendChild(config.tableNode);
         container.appendChild(titleBar);
         container.appendChild(body);
     }
 
-    function renderStates(demoCase) {
-        renderCombinedTable(
-            refs.studentTablePanel,
+    function renderDefinitions() {
+        renderTableCard(
+            refs.studentDefinitionPanel,
             {
-                name: "STUDENT_CSV",
-                definitionMetaText: "CSV 파일",
-                stateMetaText: demoCase.studentCsv.present ? "student.csv 생성됨" : "student.csv 없음",
-                schemaRows: STUDENT_SCHEMA,
-                columnLabels: ["id", "name", "class", "authorization"],
-                rowKeys: ["id", "name", "class", "authorization"],
-                rows: demoCase.studentCsv.rows,
-                fileExists: demoCase.studentCsv.present
+                displayName: STUDENT_TABLE_INFO.displayName,
+                metaTexts: [STUDENT_TABLE_INFO.logicalName, STUDENT_TABLE_INFO.storageLabel],
+                tableNode: buildSchemaTable(STUDENT_SCHEMA)
             }
         );
 
-        renderCombinedTable(
-            refs.entryTablePanel,
+        renderTableCard(
+            refs.entryDefinitionPanel,
             {
-                name: "ENTRY_LOG_BIN",
-                definitionMetaText: "Binary 파일",
-                stateMetaText: demoCase.entryLog.present ? "entry_log.bin 생성됨" : "entry_log.bin 없음",
-                schemaRows: ENTRY_SCHEMA,
-                columnLabels: ["entered_at", "id"],
-                rowKeys: ["entered_at", "id"],
-                rows: demoCase.entryLog.rows,
-                fileExists: demoCase.entryLog.present
+                displayName: ENTRY_TABLE_INFO.displayName,
+                metaTexts: [ENTRY_TABLE_INFO.logicalName, ENTRY_TABLE_INFO.storageLabel],
+                tableNode: buildSchemaTable(ENTRY_SCHEMA)
+            }
+        );
+    }
+
+    function renderStates(demoCase) {
+        renderTableCard(
+            refs.studentStatePanel,
+            {
+                displayName: STUDENT_TABLE_INFO.displayName,
+                metaTexts: [
+                    STUDENT_TABLE_INFO.logicalName,
+                    demoCase.studentCsv.present ? "student.csv 생성됨" : "student.csv 없음"
+                ],
+                tableNode: buildDataTable(
+                    ["id", "name", "class", "authorization"],
+                    ["id", "name", "class", "authorization"],
+                    demoCase.studentCsv.rows,
+                    demoCase.studentCsv.present ? "저장된 행이 없습니다." : "아직 파일이 생성되지 않았습니다."
+                )
+            }
+        );
+
+        renderTableCard(
+            refs.entryStatePanel,
+            {
+                displayName: ENTRY_TABLE_INFO.displayName,
+                metaTexts: [
+                    ENTRY_TABLE_INFO.logicalName,
+                    demoCase.entryLog.present ? "entry_log.bin 생성됨" : "entry_log.bin 없음"
+                ],
+                tableNode: buildDataTable(
+                    ["entered_at", "id"],
+                    ["entered_at", "id"],
+                    demoCase.entryLog.rows,
+                    demoCase.entryLog.present ? "저장된 행이 없습니다." : "아직 파일이 생성되지 않았습니다."
+                )
             }
         );
     }
@@ -402,6 +417,7 @@
 
     buildSummaryCards();
     renderCaseList();
+    renderDefinitions();
     renderCurrentCase();
     wireCopyButtons();
 
