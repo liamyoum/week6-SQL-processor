@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #define STUDENT_CSV_PATH "data/student.csv"
+#define ENTRY_LOG_BIN_PATH "data/entry_log.bin"
 
 static int execute_sql_statements(const StatementList *statements)
 {
@@ -43,7 +44,12 @@ static int execute_sql_statements(const StatementList *statements)
 
         parsed_successfully = 1;
 
-        if (execute_statement(&statement, STUDENT_CSV_PATH, stdout, stderr) != 0) {
+        if (execute_statement(
+                &statement,
+                STUDENT_CSV_PATH,
+                ENTRY_LOG_BIN_PATH,
+                stdout,
+                stderr) != 0) {
             if (parsed_successfully) {
                 free_statement(&statement);
             }

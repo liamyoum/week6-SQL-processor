@@ -1,5 +1,7 @@
 #include "executor.h"
 
+#include "datetime_utils.h"
+#include "entry_log_storage.h"
 #include "student_storage.h"
 
 #include <stdio.h>
@@ -13,6 +15,8 @@
  * - storage는 파일 포맷을 담당
  * - executor는 문장 의미 실행을 담당
  */
+
+#define ENTRY_LOG_OUTPUT_HEADER "entered_at,id"
 
 static char authorization_for_class_number(int class_number)
 {
@@ -41,6 +45,23 @@ static void print_student_record(FILE *output_stream, const StudentRecord *recor
         record->name,
         record->class_number,
         record->authorization);
+}
+
+static void print_entry_log_header(FILE *output_stream)
+{
+    fprintf(output_stream, "%s\n", ENTRY_LOG_OUTPUT_HEADER);
+}
+
+static int print_entry_log_record(FILE *output_stream, const EntryLogRecord *record)
+{
+    char datetime_text[DATETIME_BUFFER_SIZE];
+
+    if (format_unix_timestamp(record->entered_at, datetime_text, sizeof(datetime_text)) != 0) {
+        return 1;
+    }
+
+    fprintf(output_stream, "%s,%d\n", datetime_text, (int)record->id);
+    return 0;
 }
 
 static int execute_insert_student(
@@ -141,14 +162,83 @@ static int execute_select_student_by_id(
     return 0;
 }
 
+static int execute_insert_entry_log(
+    const Statement *statement,
+    const char *entry_log_bin_path,
+    FILE *error_stream)
+{
+    DateTimeParts parts;
+    int64_t timestamp;
+    EntryLogRecord record;
+    EntryLogStorageStatus status;
+
+    /*
+     * Step 5에서는 datetime 검증과 binary 저장까지만 연결한다.
+     * 학생 존재 여부 / authorization 검사는 Step 6에서 추가한다.
+     */
+    if (parse_datetime_string(statement->data.insert_entry_log.entered_at, &parts) != 0 ||
+        datetime_parts_to_unix_timestamp(&parts, &timestamp) != 0) {
+        fprintf(error_stream, "failed to insert entry log: invalid datetime\n");
+        return 1;
+    }
+
+    record.entered_at = timestamp;
+    record.id = statement->data.insert_entry_log.id;
+
+    status = append_entry_log_record(entry_log_bin_path, &record);
+    if (status != ENTRY_LOG_STORAGE_OK) {
+        fprintf(error_stream, "failed to insert entry log\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+static int execute_select_entry_log_by_id(
+    int id,
+    const char *entry_log_bin_path,
+    FILE *output_stream,
+    FILE *error_stream)
+{
+    EntryLogRecordList list;
+    EntryLogStorageStatus status;
+    size_t i;
+
+    status = read_entry_log_records_by_id(entry_log_bin_path, id, &list);
+    if (status != ENTRY_LOG_STORAGE_OK) {
+        fprintf(error_stream, "failed to read entry log records\n");
+        return 1;
+    }
+
+    if (list.count == 0U) {
+        fprintf(output_stream, "no rows found\n");
+        free_entry_log_record_list(&list);
+        return 0;
+    }
+
+    print_entry_log_header(output_stream);
+    for (i = 0U; i < list.count; i++) {
+        if (print_entry_log_record(output_stream, &list.items[i]) != 0) {
+            fprintf(error_stream, "failed to format entry log record\n");
+            free_entry_log_record_list(&list);
+            return 1;
+        }
+    }
+
+    free_entry_log_record_list(&list);
+    return 0;
+}
+
 int execute_statement(
     const Statement *statement,
     const char *student_csv_path,
+    const char *entry_log_bin_path,
     FILE *output_stream,
     FILE *error_stream)
 {
     if (statement == NULL ||
         student_csv_path == NULL ||
+        entry_log_bin_path == NULL ||
         output_stream == NULL ||
         error_stream == NULL) {
         return 1;
@@ -169,9 +259,14 @@ int execute_statement(
             error_stream);
 
     case STATEMENT_INSERT_ENTRY_LOG:
+        return execute_insert_entry_log(statement, entry_log_bin_path, error_stream);
+
     case STATEMENT_SELECT_ENTRY_LOG_BY_ID:
-        fprintf(error_stream, "statement type not supported in step4\n");
-        return 1;
+        return execute_select_entry_log_by_id(
+            statement->data.select_entry_log_by_id.id,
+            entry_log_bin_path,
+            output_stream,
+            error_stream);
     }
 
     fprintf(error_stream, "unknown statement type\n");
