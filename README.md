@@ -2,7 +2,7 @@
 
 C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. 이 저장소의 목표는 범용 DBMS를 만드는 것이 아니라, 정해진 두 테이블만 대상으로 `INSERT` 와 `SELECT` 를 처리하는 최소 기능의 SQL processor를 만드는 것입니다.
 
-현재 저장소는 단계적으로 구현 중이며, 현재 기준으로는 Step 4까지 진행되어 SQL 파일 읽기, `;` 기준 문장 분리, tokenizer, parser(AST 생성), `STUDENT_CSV` executor/storage까지 구현되어 있습니다. `./sql_processor` 는 이제 학생 INSERT / SELECT를 실제 실행하며, `ENTRY_LOG_BIN` 관련 실행은 아직 Step 5 이후 범위입니다.
+현재 저장소는 단계적으로 구현 중이며, 현재 기준으로는 Step 6까지 진행되어 SQL 파일 읽기, `;` 기준 문장 분리, tokenizer, parser(AST 생성), executor, `STUDENT_CSV` CSV storage, `ENTRY_LOG_BIN` binary storage, datetime 검증/변환, 권한 검사까지 전체 파이프라인이 연결되어 있습니다.
 
 아래 README는 "현재 구현 상태"와 [`sql_processor_codex_spec.md`](sql_processor_codex_spec.md) 기준의 "최종 목표 범위"를 구분해서 정리한 문서입니다.
 
@@ -12,13 +12,25 @@ C99로 구현하는 작은 파일 기반 SQL 처리기 프로젝트입니다. �
 - Step 2 완료: 최소 SQL tokenizer 구현
 - Step 3 완료: 지원하는 5가지 SQL 형태를 AST로 바꾸는 parser 구현
 - Step 4 완료: `STUDENT_CSV` CSV storage + executor + CLI 실행 연결
-- 테스트 완료: `test_step1`, `test_tokenizer`, `test_parser`, `test_student_storage`, `test_step4`
-- 미구현: `ENTRY_LOG_BIN` storage/executor, datetime 검증/변환
+- Step 5 완료: datetime 파싱/포맷 + `ENTRY_LOG_BIN` binary storage + `ENTRY_LOG_BIN SELECT`
+- Step 6 완료: 학생 존재 여부 검사 + authorization 검사 + full pipeline 연결
+- 테스트 완료:
+  - `test_step1`
+  - `test_tokenizer`
+  - `test_parser`
+  - `test_datetime_utils`
+  - `test_student_storage`
+  - `test_entry_log_storage`
+  - `test_step4`
+  - `test_step5`
+  - `test_step6`
+- 현재 구현은 명세 범위를 모두 연결한 상태다.
 - 현재 `sql_processor` CLI 동작:
   - `INSERT INTO STUDENT_CSV ...`
   - `SELECT * FROM STUDENT_CSV;`
   - `SELECT * FROM STUDENT_CSV WHERE id = <int>;`
-  - `ENTRY_LOG_BIN` 관련 statement는 parser까지는 되지만 실행은 아직 지원하지 않음
+  - `INSERT INTO ENTRY_LOG_BIN VALUES ('YYYY-MM-DD HH:MM:SS', id);`
+  - `SELECT * FROM ENTRY_LOG_BIN WHERE id = <int>;`
 
 ## Project Overview
 
@@ -58,7 +70,7 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = <int>;
 
 ## Overall Flow
 
-현재 모듈 구현 범위는 `SQL file read -> statement split -> tokenizer -> parser(AST) -> student executor -> student CSV storage` 까지입니다. 다만 `ENTRY_LOG_BIN` 쪽 executor/storage는 아직 연결되지 않았습니다. 아래 mermaid 다이어그램은 최종 목표 실행 흐름입니다.
+현재 모듈 구현 범위는 `SQL file read -> statement split -> tokenizer -> parser(AST) -> executor -> CSV/Binary storage` 전체입니다. 아래 mermaid 다이어그램은 현재 실제 실행 흐름과 거의 동일합니다.
 
 ```mermaid
 flowchart TD
@@ -182,7 +194,7 @@ make
 - `SELECT` 결과는 `stdout` 에 출력합니다.
 - 에러는 `stderr` 에 출력합니다.
 
-현재 구현에서는 `STUDENT_CSV` 관련 statement를 실제 실행합니다. `ENTRY_LOG_BIN` 관련 statement는 아직 Step 4 범위 밖이므로 에러로 중단합니다.
+현재 구현에서는 지원하는 다섯 가지 statement를 실제로 끝까지 실행합니다.
 
 예를 들어 학생 3명을 INSERT한 뒤 `SELECT * FROM STUDENT_CSV;` 를 실행하면 현재는 아래처럼 나옵니다.
 
@@ -199,7 +211,7 @@ id,name,class,authorization
 make test
 ```
 
-현재 자동화 테스트는 Step 4 기준으로 아래 동작을 검증합니다.
+현재 자동화 테스트는 Step 6 기준으로 아래 동작을 검증합니다.
 
 - SQL 파일 전체 읽기
 - 단일 문장 분리
@@ -216,8 +228,43 @@ make test
 - 중복 id 거부
 - authorization 계산 결과가 CSV와 SELECT 출력에 반영되는지
 - CLI 기준 Step 4 기능 흐름
+- datetime 문자열 파싱 / timestamp 변환 / 출력 문자열 포맷
+- `entry_log.bin` 12바이트 레코드 append / id별 조회
+- 잘못된 datetime 거부
+- 권한 없는 학생의 `ENTRY_LOG_BIN` INSERT 거부
+- 존재하지 않는 학생의 `ENTRY_LOG_BIN` INSERT 거부
+- 중간 에러 발생 시 이후 statement 실행 중단
+- Step 6 end-to-end CLI 흐름
 
-아직 없는 테스트는 `ENTRY_LOG_BIN` storage/executor, datetime 검증/변환, 권한 검사 관련 테스트입니다.
+## Demo
+
+짧고 굵게 보여 주려면 개별 파일을 하나씩 여는 대신 아래 명령을 사용하면 된다.
+
+```bash
+make demo
+```
+
+이 명령은 `manual_samples/` 아래 샘플 SQL 7개를 한 번에 실행하고,
+결과를 `manual_runs/latest/` 아래에 정리한다.
+
+발표 때는 아래 파일 하나만 열면 된다.
+
+- `manual_runs/latest/DEMO_OVERVIEW.md`
+
+이 파일에는:
+
+- 각 샘플의 목적
+- exit code
+- `stdout` 첫 줄 요약
+- `stderr` 첫 줄 요약
+- `student.csv` / `entry_log.bin` 존재 여부
+- 각 케이스별 원본 SQL, 실제 `stdout`, `stderr`, `student.csv`, binary hex dump 링크
+
+가 한 번에 정리된다.
+
+샘플 SQL 원본 설명은 아래 문서에 있다.
+
+- `manual_samples/README.md`
 
 ## Example SQL File
 
@@ -234,7 +281,7 @@ SELECT * FROM ENTRY_LOG_BIN WHERE id = 302;
 
 ## Example Output
 
-`STUDENT_CSV` 예시는 현재 CLI에서 이미 동작합니다. `ENTRY_LOG_BIN` 예시는 최종 목표 기준입니다.
+아래 출력은 현재 CLI에서 실제로 나오는 형식이다.
 
 `SELECT * FROM STUDENT_CSV;`
 
@@ -279,10 +326,6 @@ no rows found
 
 ## Future Improvements
 
-- `ENTRY_LOG_BIN` storage와 executor 구현
-- `ENTRY_LOG_BIN` INSERT 시 학생 존재 여부 / authorization 규칙 검사 구현
-- datetime 형식 검증과 timestamp 변환 구현
 - `data/student.csv`, `data/entry_log.bin` 초기화와 예외 처리 보강
-- end-to-end 기능 테스트 추가
 - 에러 메시지 표준화
 - 발표와 데모에 맞춘 예시 SQL fixture 확장
